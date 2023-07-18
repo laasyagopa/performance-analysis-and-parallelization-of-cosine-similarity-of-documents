@@ -1,0 +1,354 @@
+
+# parallel code
+def convert_to_lower(x,q1,i,lock):
+  list1 = x.split(' ')
+  list3=[]
+  list3.append(i)
+  list1 = list3+list1
+  for i in range(1,len(list1)):
+    list1[i] = list1[i].lower()
+  list2 = list1
+  lock.acquire()
+  q1.put(list2)
+  lock.release()
+def removal_stop_words(lower_case_1,stop_words,q2,num,lock):
+  set1 = set(lower_case_1)
+  intersect_words = list(set1.intersection(set(stop_words)))
+  l_c_f = lower_case_1
+  for x in intersect_words:
+    j = 0
+    while j < len(l_c_f):
+      if (l_c_f[j] == x):
+        l_c_f.remove(x)
+      else:
+        j += 1
+  list3=[]
+  list3.append(num)
+  l_c_f = list3 + l_c_f
+  lock.acquire()
+  q2.put(l_c_f)
+  lock.release()
+def find_tf_ntf(lower_case_file,lower_set_file,q3,q4,num4,num5,lock):
+  list1 = lower_case_file
+  list2 = lower_set_file
+  r = len(lower_case_file)
+  list_count = []
+  ntf_count = []
+  for x in list2:
+    num = list1.count(x)
+    list_count.append(num)
+    ntf_count.append(num / r)
+  list_count=[num4]+list_count
+  ntf_count = [num5]+ntf_count
+  lock.acquire()
+  q3.put(list_count)
+  q4.put(ntf_count)
+  lock.release()
+def idf_inc_query(x,lower_set_file,q6,q7,lock):
+  len1 = len(lower_set_file)
+  count1 = 0
+  for i in range(0, len1):
+    list1 = lower_set_file[i]
+    list1=list1[1:]
+    for j in range(0, len(list1)):
+      if (list1[j] == x):
+        count1 += 1
+        break
+  lock.acquire()
+  q6.put(x)
+  q7.put(1 + math.log2(len1 / count1))
+  lock.release()
+  len1 = len(lower_set_file)
+  count1 = 0
+  for i in range(0, len1):
+    list1 = lower_set_file[i]
+    list1=list1[1:]
+    for j in range(0, len(list1)):
+      if (list1[j] == x):
+        count1 += 1
+        break
+  if(count1==0):
+    count1=1
+  lock.acquire()
+  q8.put(x)
+  q9.put(1 + math.log2(len1 / count1))
+  lock.release()
+
+def find_query_docs_tf_idf(list1,list5,query_list,q3,num,lock):
+  list2=[]
+  for x in range(0,len(query_list)):
+    flag=0
+    for j in range(0,len(list1)):
+      if(query_list[x]==list1[j]):
+        list2.append(list5[j])
+        flag=1
+        break
+    if(flag==0):
+      list2.append(0)
+  list2 = [num]+list2
+  lock.release()
+
+def find_doc_tf_dot(list1,query_idf1,q11,q12,num10,lock):
+  time.sleep(1)
+  list2 = []
+  sum1 = 0
+  for j in range(len(list1)):
+    list2.append(query_idf1[j] * list1[j])
+    num3 = query_idf1[j] * list1[j]
+    sum1 = sum1 + (num3) ** 2
+  list2 = [num10]+list2
+  list3=[]
+  list3.append(math.sqrt(sum1))
+  list3 =[num10] + list3
+  lock.acquire()
+  q11.put(list2)
+  q12.put(list3)
+  lock.release()
+def find_sim(list1,docs_d_p,query_tf_mul_idf,query_dot_prod,num15,q14,lock):
+  time.sleep(1)
+  if (docs_d_p == 0.0):
+    list19=[num15+1,0]
+    q14.put(list19)
+    print('Cosine Similarity of Document no ' + str(num15+1) + ' is: 0')
+  else:
+    sum1 = 0
+    for j in range(0, len(query_tf_mul_idf)):
+      sum1 = sum1 + (query_tf_mul_idf[j] * list1[j])
+    cos_sim = ((sum1) / (docs_d_p * query_dot_prod))
+    list19 = [num15+1, cos_sim]
+    lock.acquire()
+    q14.put(list19)
+    lock.release()
+if __name__ =="__main__":
+    start = time.perf_counter()
+    stop_words = ["", ";", ".\n", "i", ",", ".", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your","yours", "yourself", "yourselves","on", "he", "him", "his", "himself", "she", "her", "hers", "herself","it", "its", "itself", "they", "them", "their", "theirs", "themselves", "what", "which", "who","whom", "this", "that", "these", "those", "am", "is", "are", "was", "were", "be", "been", "being","have", "has", "had", "having", "do", "does", "did", "doing", "a", "an", "the", "and", "but", "if","or", "because", "as", "until", "while", "of", "at", "by", "for", "with", "about", "against","between", "into", "through", "during", "before", "after", "above", "below", "to", "from", "up","down", "in", "out", "on", "off", "over", "under", "again", "further", "then", "once", "here","there", "when", "where", "why", "how", "all", "any", "both", "each", "few", "more", "most", "other","some", "such", "no", "nor", "not", "only", "own", "same", "so", "than", "too", "very", "s", "t","can", "will", "just", "don", "should", "now"]
+    query = "impact of demonetization on banks in india"
+    main_file = []
+    file=open('doc.txt','r')
+    temp=file.read()
+    main_file.append(temp)
+    file=open('doc2.txt','r')
+    temp=file.read()
+    main_file.append(temp)
+    file=open('doc3.txt','r')
+    temp=file.read()
+    main_file.append(temp)
+    file=open('doc4.txt','r')
+    temp=file.read()
+    main_file.append(temp)
+    file=open('doc5.txt','r')
+    temp=file.read()
+    main_file.append(temp)
+    main_file.append(query)
+
+q1 = mp.Queue()
+processes = []
+lock =mp.Lock()
+for i in range(0,len(main_file)):
+  p=mp.Process(target=convert_to_lower, args=(main_file[i],q1,i,lock))
+  processes.append(p)
+for i in range(0,len(main_file)):
+  processes[i].start()
+for i in range(0,len(main_file)):
+  processes[i].join()
+lower_case_file=[q1.get() for i in range(0,len(main_file)) ]
+processes=[]
+lock = mp.Lock()
+q2=mp.Queue()
+for i in range(0,len(lower_case_file)):
+  l1=lower_case_file[i]
+  num = l1[0]
+  lower_case_file[i] = l1[1:]
+  p=mp.Process(target=removal_stop_words,args=(lower_case_file[i],stop_words,q2,num,lock))
+  processes.append(p)
+for i in range(0,len(lower_case_file)):
+  processes[i].start()
+for i in range(0,len(lower_case_file)):
+  processes[i].join()
+print(lower_case_file)
+lower_case_file=[q2.get() for i in range(0,len(lower_case_file))]
+lower_set_file=[]
+for i in range(0,len(lower_case_file)):
+  print(lower_case_file[i])
+print(len(lower_case_file[5]))
+for i in range(0,len(lower_case_file)):
+  list1=lower_case_file[i]
+  num=list1[0]
+  list1=list1[1:]
+  list2=list(set(list1))
+  list1=[num]+list1
+  list2=[num]+list2
+  lower_set_file.append(list2)
+print(lower_set_file)
+q3 = mp.Queue()
+q4 = mp.Queue()
+processes=[]
+lock = mp.Lock()
+for i in range(0,len(lower_case_file)):
+  l1=lower_case_file[i]
+  num4 = l1[0]
+  lower_case_file[i] = l1[1:]
+  l2 = lower_set_file[i]
+  num5 = l2[0]
+  l3=l2[1:]
+  p=mp.Process(target=find_tf_ntf, args=(lower_case_file[i],l3,q3,q4,num4,num5,lock))
+  processes.append(p)
+for i in range(0,len(lower_case_file)):
+  processes[i].start()
+for i in range(0,len(lower_case_file)):
+  processes[i].join()
+lower_tf_file=[q3.get() for i in range(0,len(lower_case_file))]
+lower_ntf_file = [q4.get() for i in range(0, len(lower_case_file))]
+query_list=[]
+query_tf=[]
+query_ntf=[]
+print(lower_tf_file)
+print(lower_ntf_file)
+for i in range(0,len(lower_set_file)):
+  list1=lower_set_file[i]
+  if(list1[0]==len(lower_set_file)-1):
+    query_list=list1
+    break
+for i in range(0,len(lower_tf_file)):
+  list1=lower_tf_file[i]
+  if(list1[0]==len(lower_tf_file)-1):
+    query_tf=list1
+    break
+for i in range(0,len(lower_ntf_file)):
+  list1=lower_ntf_file[i]
+  if(list1[0]==len(lower_ntf_file)-1):
+    query_ntf=list1
+    break
+print(query_list)
+print(query_tf)
+query_list=query_list[1:]
+query_ntf = query_ntf[1:]
+query_tf = query_tf[1:]
+print(query_list)
+print(query_ntf)
+print(query_tf)
+
+q6=mp.Queue()
+q7=mp.Queue()
+processes=[]
+lock = mp.Lock()
+for i in range(len(query_list)):
+  p=mp.Process(target=idf_inc_query,args=(query_list[i],lower_set_file,q6,q7,lock))
+  processes.append(p)
+for i in range(len(query_list)):
+  processes[i].start()
+for i in range(len(query_list)):
+  processes[i].join()
+query_list=[q6.get() for i in range(len(query_list))]
+query_idf=[q7.get() for i in range(len(query_list))]
+print(query_list)
+print(query_idf)
+index=0
+for i in range(0,len(lower_set_file)):
+  list1=lower_set_file[i]
+  if(list1[0]==(len(lower_set_file)-1)):
+    index=i
+    break
+del lower_set_file[index]
+index = 0
+for i in range(0, len(lower_tf_file)):
+  list1 = lower_tf_file[i]
+  if (list1[0] == (len(lower_tf_file) - 1)):
+      index = i
+      break
+del lower_tf_file[index]
+index = 0
+for i in range(0, len(lower_ntf_file)):
+  list1 = lower_ntf_file[i]
+  if (list1[0] == (len(lower_ntf_file) - 1)):
+      index = i
+      break
+del lower_ntf_file[index]
+print(lower_set_file)
+print(lower_tf_file)
+print(lower_ntf_file)
+q8 = mp.Queue()
+q9 = mp.Queue()
+lock = mp.Lock()
+processes = []
+for i in range(len(query_list)):
+  p = mp.Process(target=idf_exc_query, args=(query_list[i], lower_set_file, q8, q9,lock))
+  processes.append(p)
+for i in range(len(query_list)):
+  processes[i].start()
+for i in range(len(query_list)):
+  processes[i].join()
+query_list = [q8.get() for i in range(len(query_list))]
+query_idf1 = [q9.get() for i in range(len(query_list))]
+print(query_list)
+print(query_idf1)
+q3 = mp.Queue()
+processes=[]
+lock = mp.Lock()
+for i in range(len(lower_set_file)):
+  list1=lower_set_file[i]
+  for j in range(len(lower_ntf_file)):
+    list2=lower_ntf_file[j]
+    if(list1[0]==list2[0]):
+      num=list1[0]
+      list1=list1[1:]
+      list2=list2[1:]
+      p=mp.Process(target=find_query_docs_tf_idf,args=(list1,list2,query_list,q3,num,lock))
+      processes.append(p)
+for i in range(0,len(lower_set_file)):
+  processes[i].start()
+for i in range(0,len(lower_set_file)):
+  processes[i].join()
+query_docs_tf_idf=[q3.get() for i in range(0,len(lower_set_file))]
+query_tf_mul_idf = []
+for i in range(0, len(query_idf)):
+  query_tf_mul_idf.append(query_idf[i] * query_ntf[i])
+print(query_docs_tf_idf)
+print(query_tf_mul_idf)
+q11 = mp.Queue()
+q12 = mp.Queue()
+processes = []
+lock = mp.Lock()
+for i in range(len(query_docs_tf_idf)):
+  list1 = query_docs_tf_idf[i]
+  num10 = list1[0]
+  list1=list1[1:]
+  p=mp.Process(target=find_doc_tf_dot,args=(list1,query_idf1,q11,q12,num10,lock))
+  processes.append(p)
+for i in range(len(query_docs_tf_idf)):
+  processes[i].start()
+for i in range(len(query_docs_tf_idf)):
+  processes[i].join()
+docs_tf_mul_idf=[q11.get() for i in range(len(query_docs_tf_idf))]
+docs_dot_prod=[q12.get() for i in range(len(query_docs_tf_idf))]
+print(docs_tf_mul_idf)
+print(docs_dot_prod)
+print("PARALLEL EXECUTION\n")
+print("Dot Product of Query\n")
+query_dot_prod = 0
+for i in range(0, len(query_tf_mul_idf)):
+  num4 = query_ntf[i] * query_idf[i]
+  query_dot_prod = query_dot_prod + ((num4) ** 2)
+query_dot_prod = math.sqrt(query_dot_prod)
+print(query_dot_prod)
+
+print("PARALLEL EXECUTION\n")
+q14 = mp.Queue()
+lock = mp.Lock()
+processes=[]
+for i in range(0, len(docs_tf_mul_idf)):
+  list1=docs_tf_mul_idf[i]
+  num15 = list1[0]
+  list1 = list1[1:]
+  docs_d_p = docs_dot_prod[i][1]
+  processes.append(p)
+for i in range(0, len(docs_tf_mul_idf)):
+  processes[i].start()
+for i in range(0, len(docs_tf_mul_idf)):
+  processes[i].join()
+
+print("PARALLEL EXECUTION\n")
+end = time.perf_counter()
+print('It took '+str(end-start)+' seconds to execute')
+ 
+ 
